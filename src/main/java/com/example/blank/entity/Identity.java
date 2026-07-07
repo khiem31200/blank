@@ -15,6 +15,9 @@ public class Identity {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(name = "image_url", length = 512)
+    private String imageUrl;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -32,6 +35,14 @@ public class Identity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public OffsetDateTime getCreatedAt() {

@@ -11,6 +11,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
@@ -60,6 +61,43 @@ public class Home {
                 logs.stream().mapToDouble(RecognitionLog::getSimilarity).max().orElse(0));
         model.addAttribute("lastSeen", logs.isEmpty() ? null : logs.get(0).getRecognizedAt());
         return "identity-logs";
+    }
+
+    @PostMapping("/view/registers/{id}/rename")
+    @Transactional
+    public String renameIdentity(@PathVariable Integer id,
+                                 @RequestParam("newName") String newName,
+                                 RedirectAttributes redirectAttributes) {
+        Identity identity = identityRepository.findById(id).orElse(null);
+        if (identity == null) {
+            redirectAttributes.addFlashAttribute("error", "Không tìm thấy định danh #" + id);
+            return "redirect:/view/registers";
+        }
+
+        String trimmed = newName == null ? "" : newName.trim();
+        String oldName = identity.getName();
+
+        if (trimmed.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "Tên mới không được để trống.");
+            return "redirect:/view/registers/" + id;
+        }
+        if (trimmed.equals(oldName)) {
+            redirectAttributes.addFlashAttribute("error", "Tên mới trùng với tên hiện tại.");
+            return "redirect:/view/registers/" + id;
+        }
+        if (identityRepository.existsByName(trimmed)) {
+            redirectAttributes.addFlashAttribute("error",
+                    "Tên \"" + trimmed + "\" đã tồn tại. Vui lòng chọn tên khác.");
+            return "redirect:/view/registers/" + id;
+        }
+
+        identity.setName(trimmed);
+        identityRepository.save(identity);
+        int updatedLogs = recognitionLogRepository.renameIdentityName(oldName, trimmed);
+
+        redirectAttributes.addFlashAttribute("message",
+                "Đã đổi tên \"" + oldName + "\" thành \"" + trimmed + "\" (cập nhật " + updatedLogs + " bản ghi lịch sử).");
+        return "redirect:/view/registers/" + id;
     }
 
     @PostMapping("/view/registers/{id}/delete")

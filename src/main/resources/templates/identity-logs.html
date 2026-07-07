@@ -25,6 +25,28 @@
             color: var(--accent); background: #eef1f5;
             display: flex; align-items: center; justify-content: center;
         }
+        .profile-photo {
+            width: 110px; height: 110px; border-radius: 16px; object-fit: cover;
+            background: #eef1f5; border: 1px solid var(--line); cursor: zoom-in;
+            transition: transform .12s ease, box-shadow .12s ease;
+        }
+        .profile-photo:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba(16,24,40,.18); }
+        /* Lightbox */
+        #lightbox {
+            position: fixed; inset: 0; z-index: 1080; display: none;
+            align-items: center; justify-content: center;
+            background: rgba(15,23,42,.82); padding: 24px; cursor: zoom-out;
+        }
+        #lightbox.show { display: flex; }
+        #lightbox img {
+            max-width: min(90vw, 720px); max-height: 90vh; border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0,0,0,.5); background: #fff;
+        }
+        #lightbox .lb-close {
+            position: absolute; top: 18px; right: 22px; color: #fff; font-size: 30px;
+            line-height: 1; cursor: pointer; opacity: .85;
+        }
+        #lightbox .lb-close:hover { opacity: 1; }
         .stat-card .label { font-size: 12px; color: var(--muted); }
         .table > :not(caption) > * > * { padding: .85rem 1rem; }
         .table-hover tbody tr:hover { background: #f3f5f8; }
@@ -65,9 +87,24 @@
         </ol>
     </nav>
 
+    <div th:if="${message}" class="alert alert-success alert-dismissible fade show shadow-soft border-0" role="alert">
+        <i class="bi bi-check-circle me-1"></i><span th:text="${message}">Thành công</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    <div th:if="${error}" class="alert alert-warning alert-dismissible fade show shadow-soft border-0" role="alert">
+        <i class="bi bi-exclamation-triangle me-1"></i><span th:text="${error}">Lỗi</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
     <div class="card profile-card shadow-soft mb-4">
         <div class="card-body d-flex align-items-center">
-            <div class="profile-avatar me-3"
+            <img th:if="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
+                 class="profile-photo me-3" th:src="${identity.imageUrl}"
+                 th:alt="${identity.name}"
+                 th:attr="data-full=${identity.imageUrl},data-name=${identity.name}"
+                 onclick="openLightbox(this)">
+            <div th:unless="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
+                 class="profile-avatar me-3"
                  th:text="${#strings.toUpperCase(#strings.substring(identity.name,0,1))}">A</div>
             <div>
                 <h1 class="h4 mb-1" th:text="${identity.name}">Tên</h1>
@@ -162,9 +199,48 @@
         <a th:href="@{/view/registers}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Quay lại danh sách
         </a>
-        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
-            <i class="bi bi-trash me-1"></i>Xóa người dùng
-        </button>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#renameModal">
+                <i class="bi bi-pencil-square me-1"></i>Đổi tên
+            </button>
+            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="bi bi-trash me-1"></i>Xóa người dùng
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xác nhận đổi tên -->
+<div class="modal fade" id="renameModal" tabindex="-1" aria-labelledby="renameModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form th:action="@{/view/registers/{id}/rename(id=${identity.id})}" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title text-primary" id="renameModalLabel">
+                        <i class="bi bi-pencil-square me-1"></i>Đổi tên người dùng
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Đổi tên định danh
+                        <strong th:text="${identity.name}">Tên</strong>.
+                        Toàn bộ bản ghi lịch sử nhận diện liên quan cũng sẽ được cập nhật theo tên mới.
+                    </p>
+                    <label for="newName" class="form-label small mb-1">Tên mới</label>
+                    <input type="text" class="form-control" id="newName" name="newName" autocomplete="off"
+                           maxlength="255" required th:value="${identity.name}"
+                           th:data-current="${identity.name}" placeholder="Nhập tên mới">
+                    <div class="form-text">Tên phải là duy nhất và không được để trống.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" id="confirmRenameBtn" class="btn btn-primary" disabled>
+                        <i class="bi bi-check2 me-1"></i>Xác nhận đổi tên
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -206,8 +282,28 @@
     </div>
 </div>
 
+<!-- Lightbox phóng to ảnh -->
+<div id="lightbox" onclick="closeLightbox()">
+    <span class="lb-close" aria-label="Đóng">&times;</span>
+    <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    function openLightbox(el) {
+        const box = document.getElementById('lightbox');
+        const img = document.getElementById('lightboxImg');
+        img.src = el.getAttribute('data-full') || el.src;
+        img.alt = el.getAttribute('data-name') || '';
+        box.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
     (function () {
         const input = document.getElementById('confirmName');
         const btn = document.getElementById('confirmDeleteBtn');
@@ -221,6 +317,23 @@
             btn.disabled = true;
         });
         modal.addEventListener('shown.bs.modal', () => input.focus());
+    })();
+
+    (function () {
+        const input = document.getElementById('newName');
+        const btn = document.getElementById('confirmRenameBtn');
+        const current = input.getAttribute('data-current');
+        const validate = () => {
+            const v = input.value.trim();
+            btn.disabled = (v === '' || v === current);
+        };
+        input.addEventListener('input', validate);
+        const modal = document.getElementById('renameModal');
+        modal.addEventListener('shown.bs.modal', () => { input.focus(); input.select(); });
+        modal.addEventListener('hidden.bs.modal', () => {
+            input.value = current;
+            btn.disabled = true;
+        });
     })();
 </script>
 </body>
