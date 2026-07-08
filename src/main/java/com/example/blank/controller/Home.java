@@ -28,17 +28,22 @@ public class Home {
         this.recognitionLogRepository = recognitionLogRepository;
     }
 
-    @GetMapping("/")
-    public String index() {
-        return "redirect:/view/registers";
-    }
+    // @GetMapping("/")
+    // public String index() {
+    //     return "redirect:/view/registers";
+    // }
 
     @GetMapping("/view/registers")
-    public String registerList(Model model) {
-        model.addAttribute("identities",
-                identityRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")));
-        return "registers";
-    }
+public String registerList(Model model) {
+
+    model.addAttribute("identities",
+            identityRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")));
+
+    model.addAttribute("attendance",
+            recognitionLogRepository.getDailyAttendance());
+
+    return "registers";
+}
 
     @GetMapping("/view/registers/{id}")
     public String identityLogs(@PathVariable Integer id,

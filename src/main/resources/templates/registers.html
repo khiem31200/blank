@@ -6,68 +6,8 @@
     <title>Danh sách định danh</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --ink: #334155; --muted: #64748b; --line: #e8eaee;
-            --surface: #ffffff; --bg: #f6f7f9; --accent: #5b6b82;
-        }
-        body { background: var(--bg); color: var(--ink); }
-        .app-header {
-            background: var(--surface); border-bottom: 1px solid var(--line);
-        }
-        .app-header .navbar-brand { font-weight: 600; color: var(--ink) !important; }
-        .app-header .brand-badge {
-            width: 34px; height: 34px; border-radius: 10px; background: #eef1f5; color: var(--accent);
-            display: inline-flex; align-items: center; justify-content: center;
-        }
-        .card { border: 1px solid var(--line); border-radius: 14px; }
-        .shadow-soft { box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06); }
-        .stat-icon {
-            width: 48px; height: 48px; border-radius: 12px; background: #eef1f5; color: var(--accent);
-            display: flex; align-items: center; justify-content: center; font-size: 22px;
-        }
-        .table-hover tbody tr { cursor: pointer; }
-        .table-hover tbody tr:hover { background: #f3f5f8; }
-        .table > :not(caption) > * > * { padding: .85rem 1rem; }
-        thead.table-soft th {
-            background: #f8f9fb; color: var(--muted); font-weight: 600;
-            font-size: 12px; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--line);
-        }
-        .avatar {
-            width: 38px; height: 38px; border-radius: 10px; flex: 0 0 38px;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 600; color: var(--accent); font-size: 14px; background: #eef1f5;
-        }
-        .thumb {
-            width: 44px; height: 44px; border-radius: 10px; flex: 0 0 44px;
-            object-fit: cover; background: #eef1f5; cursor: zoom-in;
-            border: 1px solid var(--line); transition: transform .12s ease, box-shadow .12s ease;
-        }
-        .thumb:hover { transform: scale(1.06); box-shadow: 0 2px 8px rgba(16,24,40,.18); }
-        /* Lightbox */
-        #lightbox {
-            position: fixed; inset: 0; z-index: 1080; display: none;
-            align-items: center; justify-content: center;
-            background: rgba(15,23,42,.82); padding: 24px; cursor: zoom-out;
-        }
-        #lightbox.show { display: flex; }
-        #lightbox img {
-            max-width: min(90vw, 720px); max-height: 90vh; border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0,0,0,.5); background: #fff;
-        }
-        #lightbox .lb-close {
-            position: absolute; top: 18px; right: 22px; color: #fff; font-size: 30px;
-            line-height: 1; cursor: pointer; opacity: .85;
-        }
-        #lightbox .lb-close:hover { opacity: 1; }
-        .count-pill {
-            background: #eef1f5; color: var(--accent); font-weight: 600;
-            border-radius: 999px; padding: .2rem .7rem; font-size: .8rem;
-        }
-        .search-box { max-width: 300px; }
-        .search-box .input-group-text, .search-box .form-control { background: #f8f9fb; }
-        .search-box .form-control:focus { background: #fff; box-shadow: none; border-color: #cdd4de; }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.18/index.global.min.css" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <header class="app-header">
@@ -81,111 +21,189 @@
     </nav>
 </header>
 
-<div class="container py-4">
-    <div th:if="${message}" class="alert alert-success alert-dismissible fade show shadow-soft border-0" role="alert">
-        <i class="bi bi-check-circle me-1"></i><span th:text="${message}">Thành công</span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-    <div th:if="${error}" class="alert alert-warning alert-dismissible fade show shadow-soft border-0" role="alert">
-        <i class="bi bi-exclamation-triangle me-1"></i><span th:text="${error}">Lỗi</span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+<div class="page-shell">
+    <div class="container py-4">
+        <div class="dashboard-shell">
+            <aside class="dashboard-sidebar">
+                <div class="sidebar-card">
+                    <div class="sidebar-card__top">
+                        <div class="sidebar-avatar"><i class="bi bi-shield-lock"></i></div>
+                        <div>
+                            <h3 class="sidebar-title">Admin Workspace</h3>
+                            <p class="sidebar-subtitle">Điều khiển nhận diện</p>
+                        </div>
+                    </div>
+                    <div class="sidebar-nav">
+                        <a class="nav-link-item active" href="/view/registers"><i class="bi bi-grid-1x2"></i> Bảng điều khiển</a>
+                        <a class="nav-link-item" href="#identityTable"><i class="bi bi-person-badge"></i> Danh sách định danh</a>
+                        <a class="nav-link-item" href="#calendar"><i class="bi bi-calendar-event"></i> Lịch nhận diện</a>
+                    </div>
+                    <a class="logout-btn" href="/login"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a>
+                </div>
+            </aside>
 
-    <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-4">
-            <div class="card stat-card shadow-soft h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="stat-icon me-3"><i class="bi bi-people"></i></div>
-                    <div>
-                        <div class="text-muted small">Định danh đã đăng ký</div>
-                        <div class="fs-3 fw-semibold" th:text="${#lists.size(identities)}">0</div>
+            <div class="dashboard-main">
+                <div th:if="${message}" class="alert alert-success alert-dismissible fade show shadow-soft border-0" role="alert">
+                    <i class="bi bi-check-circle me-1"></i><span th:text="${message}">Thành công</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-warning alert-dismissible fade show shadow-soft border-0" role="alert">
+                    <i class="bi bi-exclamation-triangle me-1"></i><span th:text="${error}">Lỗi</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+
+                <div class="card hero-card shadow-soft mb-4">
+                    <div class="card-body p-4 p-lg-5 d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+                        <div>
+                            <div class="info-pill mb-3"><i class="bi bi-stars"></i> Bảng điều khiển nhận diện</div>
+                            <h1 class="hero-title mb-2">Theo dõi danh sách định danh một cách trực quan và rõ ràng</h1>
+                            <p class="hero-copy mb-0">Hệ thống hiển thị dữ liệu nhận diện theo từng người, hỗ trợ tìm kiếm nhanh và theo dõi lịch sử qua lịch và biểu đồ.</p>
+                            <div class="hero-stack">
+                                <span class="badge">AI Face Recognition</span>
+                                <span class="badge">Lịch sử nhận diện</span>
+                                <span class="badge">Dashboard trực quan</span>
+                            </div>
+                        </div>
+                        <div class="kpi-card" style="min-width: 240px;">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                                <div>
+                                    <div class="stat-label">Tổng số</div>
+                                    <div class="stat-value" th:text="${#lists.size(identities)}">0</div>
+                                </div>
+                            </div>
+                            <div class="small">Định danh đang được quản lý trong hệ thống</div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="card table-card shadow-soft">
-        <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 py-3 border-bottom-0">
-            <h1 class="h6 mb-0 fw-semibold"><i class="bi bi-list-ul me-2 text-secondary"></i>Danh sách định danh</h1>
-            <div class="input-group input-group-sm search-box">
-                <span class="input-group-text border-end-0 text-muted"><i class="bi bi-search"></i></span>
-                <input id="searchInput" type="text" class="form-control border-start-0"
-                       placeholder="Tìm theo tên..." aria-label="Tìm theo tên" oninput="filterRows()">
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-soft">
-                <tr>
-                    <th scope="col" style="width: 80px;">ID</th>
-                    <th scope="col">Tên</th>
-                    <th scope="col" style="width: 230px;">Thời gian tạo</th>
-                    <th scope="col" style="width: 50px;"></th>
-                </tr>
-                </thead>
-                <tbody id="identityTable">
-                <tr th:if="${#lists.isEmpty(identities)}">
-                    <td colspan="4" class="text-center text-muted py-5">
-                        <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>Chưa có định danh nào.
-                    </td>
-                </tr>
-                <tr th:each="identity : ${identities}"
-                    th:onclick="|window.location.href='@{/view/registers/{id}(id=${identity.id})}'|">
-                    <td class="text-muted">#<span th:text="${identity.id}">1</span></td>
-                    <td>
-                        <div class="d-flex align-items-center">
-                            <img th:if="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
-                                 class="thumb me-3" th:src="${identity.imageUrl}"
-                                 th:alt="${identity.name}" loading="lazy"
-                                 th:attr="data-full=${identity.imageUrl},data-name=${identity.name}"
-                                 onclick="event.stopPropagation(); openLightbox(this);">
-                            <div th:unless="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
-                                 class="avatar me-3"
-                                 th:text="${#strings.toUpperCase(#strings.substring(identity.name,0,1))}">A</div>
-                            <span class="fw-medium name-cell" th:text="${identity.name}">Tên</span>
+                <div class="row g-3 mb-4">
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="card stat-card shadow-soft h-100">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <div class="stat-icon"><i class="bi bi-people"></i></div>
+                                <div>
+                                    <div class="stat-label">Định danh đã đăng ký</div>
+                                    <div class="stat-value" th:text="${#lists.size(identities)}">0</div>
+                                </div>
+                            </div>
                         </div>
-                    </td>
-                    <td class="text-muted">
-                        <i class="bi bi-clock-history me-1"></i>
-                        <span th:text="${identity.createdAt != null ? #temporals.format(identity.createdAt, 'dd/MM/yyyy HH:mm:ss') : ''}">--</span>
-                    </td>
-                    <td class="text-end text-muted"><i class="bi bi-chevron-right"></i></td>
-                </tr>
-                <tr id="noResult" class="d-none">
-                    <td colspan="4" class="text-center text-muted py-4">Không tìm thấy định danh phù hợp.</td>
-                </tr>
-                </tbody>
-            </table>
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <div class="card stat-card shadow-soft h-100">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <div class="stat-icon"><i class="bi bi-calendar3"></i></div>
+                                <div>
+                                    <div class="stat-label">Số ngày có lịch sử</div>
+                                    <div class="stat-value" th:text="${#lists.size(attendance)}">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-lg-4">
+                        <div class="card stat-card shadow-soft h-100">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <div class="stat-icon"><i class="bi bi-shield-check"></i></div>
+                                <div>
+                                    <div class="stat-label">Trạng thái hệ thống</div>
+                                    <div class="stat-value">Đang hoạt động</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-lg-8">
+                        <div class="card calendar-card shadow-soft h-100 p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h3 class="panel-title mb-0"><i class="bi bi-calendar-week me-2"></i>Lịch nhận diện</h3>
+                                <span class="badge rounded-pill bg-light text-muted">Theo ngày</span>
+                            </div>
+                            <div id="calendar"></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card shadow-soft h-100">
+                            <div class="card-body">
+                                <h3 class="panel-title mb-3"><i class="bi bi-lightning-charge me-2"></i>Điểm nổi bật</h3>
+                                <ul class="list-unstyled mb-0">
+                                    <li class="d-flex align-items-start gap-2 mb-3">
+                                        <i class="bi bi-check-circle-fill text-success mt-1"></i>
+                                        <span>Giao diện hiện đại và dễ theo dõi với màu sắc rõ ràng.</span>
+                                    </li>
+                                    <li class="d-flex align-items-start gap-2 mb-3">
+                                        <i class="bi bi-check-circle-fill text-success mt-1"></i>
+                                        <span>Tìm kiếm định danh nhanh bằng tên mà không làm rối bảng dữ liệu.</span>
+                                    </li>
+                                    <li class="d-flex align-items-start gap-2">
+                                        <i class="bi bi-check-circle-fill text-success mt-1"></i>
+                                        <span>Lịch và thống kê giúp quan sát xu hướng nhận diện trong thời gian thực.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card table-card shadow-soft">
+                    <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 py-3 border-bottom-0">
+                        <h1 class="h6 mb-0 fw-semibold"><i class="bi bi-list-ul me-2 text-secondary"></i>Danh sách định danh</h1>
+                        <div class="input-group input-group-sm search-box" style="max-width: 320px;">
+                            <span class="input-group-text border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                            <input id="searchInput" type="text" class="form-control border-start-0"
+                                   placeholder="Tìm theo tên..." aria-label="Tìm theo tên" oninput="filterRows()">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-soft">
+                            <tr>
+                                <th scope="col" style="width: 80px;">ID</th>
+                                <th scope="col">Tên</th>
+                                <th scope="col" style="width: 230px;">Thời gian tạo</th>
+                                <th scope="col" style="width: 50px;"></th>
+                            </tr>
+                            </thead>
+                            <tbody id="identityTable">
+                            <tr th:if="${#lists.isEmpty(identities)}">
+                                <td colspan="4" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>Chưa có định danh nào.
+                                </td>
+                            </tr>
+                            <tr th:each="identity : ${identities}"
+                                th:onclick="|window.location.href='@{/view/registers/{id}(id=${identity.id})}'|">
+                                <td class="text-muted">#<span th:text="${identity.id}">1</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar me-3"
+                                             th:text="${#strings.toUpperCase(#strings.substring(identity.name,0,1))}">A</div>
+                                        <span class="fw-medium name-cell" th:text="${identity.name}">Tên</span>
+                                    </div>
+                                </td>
+                                <td class="text-muted">
+                                    <i class="bi bi-clock-history me-1"></i>
+                                    <span th:text="${identity.createdAt != null ? #temporals.format(identity.createdAt, 'dd/MM/yyyy HH:mm:ss') : ''}">--</span>
+                                </td>
+                                <td class="text-end text-muted"><i class="bi bi-chevron-right"></i></td>
+                            </tr>
+                            <tr id="noResult" class="d-none">
+                                <td colspan="4" class="text-center text-muted py-4">Không tìm thấy định danh phù hợp.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <p class="text-muted small mt-3 mb-0">
+                    <i class="bi bi-info-circle me-1"></i>Nhấp vào một dòng để xem lịch sử nhận diện của định danh đó.
+                </p>
+            </div>
         </div>
     </div>
-    <p class="text-muted small mt-2 mb-0">
-        <i class="bi bi-info-circle me-1"></i>Nhấp vào một dòng để xem lịch sử nhận diện của định danh đó.
-    </p>
-</div>
-
-<!-- Lightbox phóng to ảnh -->
-<div id="lightbox" onclick="closeLightbox()">
-    <span class="lb-close" aria-label="Đóng">&times;</span>
-    <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function openLightbox(el) {
-        const box = document.getElementById('lightbox');
-        const img = document.getElementById('lightboxImg');
-        img.src = el.getAttribute('data-full') || el.src;
-        img.alt = el.getAttribute('data-name') || '';
-        box.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    }
-    function closeLightbox() {
-        document.getElementById('lightbox').classList.remove('show');
-        document.body.style.overflow = '';
-    }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
-
     function filterRows() {
         const q = document.getElementById('searchInput').value.trim().toLowerCase();
         const rows = document.querySelectorAll('#identityTable tr[onclick]');
@@ -198,6 +216,30 @@
         });
         document.getElementById('noResult').classList.toggle('d-none', visible !== 0 || rows.length === 0);
     }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.18/index.global.min.js"></script>
+<script th:inline="javascript">
+const raw = /*[[${attendance}]]*/ [];
+const events = raw.map(r => ({
+    title: r[1] + " người",
+    start: r[0].toString(),
+    allDay: true
+}));
+
+document.addEventListener("DOMContentLoaded", function () {
+    const calendar = new FullCalendar.Calendar(document.getElementById("calendar"), {
+        locale: "vi",
+        initialView: "dayGridMonth",
+        height: "auto",
+        events: events,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+        }
+    });
+    calendar.render();
+});
 </script>
 </body>
 </html>

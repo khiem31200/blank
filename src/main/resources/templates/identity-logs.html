@@ -6,66 +6,7 @@
     <title th:text="'Lịch sử nhận diện - ' + ${identity.name}">Lịch sử nhận diện</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --ink: #334155; --muted: #64748b; --line: #e8eaee;
-            --surface: #ffffff; --bg: #f6f7f9; --accent: #5b6b82;
-        }
-        body { background: var(--bg); color: var(--ink); }
-        .app-header { background: var(--surface); border-bottom: 1px solid var(--line); }
-        .app-header .navbar-brand { font-weight: 600; color: var(--ink) !important; }
-        .app-header .brand-badge {
-            width: 34px; height: 34px; border-radius: 10px; background: #eef1f5; color: var(--accent);
-            display: inline-flex; align-items: center; justify-content: center;
-        }
-        .card { border: 1px solid var(--line); border-radius: 14px; }
-        .shadow-soft { box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06); }
-        .profile-avatar {
-            width: 60px; height: 60px; border-radius: 16px; font-size: 26px; font-weight: 600;
-            color: var(--accent); background: #eef1f5;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .profile-photo {
-            width: 110px; height: 110px; border-radius: 16px; object-fit: cover;
-            background: #eef1f5; border: 1px solid var(--line); cursor: zoom-in;
-            transition: transform .12s ease, box-shadow .12s ease;
-        }
-        .profile-photo:hover { transform: scale(1.03); box-shadow: 0 4px 14px rgba(16,24,40,.18); }
-        /* Lightbox */
-        #lightbox {
-            position: fixed; inset: 0; z-index: 1080; display: none;
-            align-items: center; justify-content: center;
-            background: rgba(15,23,42,.82); padding: 24px; cursor: zoom-out;
-        }
-        #lightbox.show { display: flex; }
-        #lightbox img {
-            max-width: min(90vw, 720px); max-height: 90vh; border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0,0,0,.5); background: #fff;
-        }
-        #lightbox .lb-close {
-            position: absolute; top: 18px; right: 22px; color: #fff; font-size: 30px;
-            line-height: 1; cursor: pointer; opacity: .85;
-        }
-        #lightbox .lb-close:hover { opacity: 1; }
-        .stat-card .label { font-size: 12px; color: var(--muted); }
-        .table > :not(caption) > * > * { padding: .85rem 1rem; }
-        .table-hover tbody tr:hover { background: #f3f5f8; }
-        thead.table-soft th {
-            background: #f8f9fb; color: var(--muted); font-weight: 600;
-            font-size: 12px; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--line);
-        }
-        .breadcrumb a { color: var(--accent); text-decoration: none; }
-        /* Soft tonal similarity badges */
-        .sim { border-radius: 999px; padding: .2rem .6rem; font-size: .8rem; font-weight: 600; }
-        .sim-high { background: #e8f3ec; color: #2e7d52; }
-        .sim-mid  { background: #fbf1e1; color: #a96a14; }
-        .sim-low  { background: #fbeceb; color: #b1453c; }
-        .bar { height: 7px; border-radius: 999px; background: #edeff3; overflow: hidden; max-width: 110px; }
-        .bar > span { display: block; height: 100%; border-radius: 999px; }
-        .bar-high > span { background: #67ae84; }
-        .bar-mid  > span { background: #d6a652; }
-        .bar-low  > span { background: #d18a82; }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
 </head>
 <body>
 <header class="app-header">
@@ -96,58 +37,82 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 
-    <div class="card profile-card shadow-soft mb-4">
-        <div class="card-body d-flex align-items-center">
-            <img th:if="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
-                 class="profile-photo me-3" th:src="${identity.imageUrl}"
-                 th:alt="${identity.name}"
-                 th:attr="data-full=${identity.imageUrl},data-name=${identity.name}"
-                 onclick="openLightbox(this)">
-            <div th:unless="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
-                 class="profile-avatar me-3"
-                 th:text="${#strings.toUpperCase(#strings.substring(identity.name,0,1))}">A</div>
-            <div>
-                <h1 class="h4 mb-1" th:text="${identity.name}">Tên</h1>
-                <div class="text-muted small">
-                    <span class="me-3"><i class="bi bi-hash"></i><span th:text="${identity.id}">1</span></span>
-                    <span><i class="bi bi-calendar-plus me-1"></i>Tạo lúc
-                        <span th:text="${identity.createdAt != null ? #temporals.format(identity.createdAt, 'dd/MM/yyyy HH:mm:ss') : '--'}">--</span>
-                    </span>
+    <div class="card hero-card shadow-soft mb-4">
+        <div class="card-body p-4 p-lg-5">
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-4">
+                <div class="d-flex align-items-center gap-3 text-start">
+                    <img th:if="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
+                         class="profile-photo" th:src="${identity.imageUrl}"
+                         th:alt="${identity.name}"
+                         th:attr="data-full=${identity.imageUrl},data-name=${identity.name}"
+                         onclick="openLightbox(this)">
+                    <div th:unless="${identity.imageUrl != null and !identity.imageUrl.isEmpty()}"
+                         class="profile-avatar"
+                         th:text="${#strings.toUpperCase(#strings.substring(identity.name,0,1))}">A</div>
+                    <div class="profile-meta">
+                        <div class="info-pill mb-2"><i class="bi bi-person-badge"></i> Hồ sơ định danh</div>
+                        <h1 class="hero-title mb-2" th:text="${identity.name}">Tên</h1>
+                    <div class="d-flex flex-wrap gap-2 align-self-start">
+                    <span class="info-chip"><i class="bi bi-hash"></i><span th:text="${identity.id}">1</span></span>
+                    <span class="info-chip"><i class="bi bi-calendar-plus"></i><span th:text="${identity.createdAt != null ? #temporals.format(identity.createdAt, 'dd/MM/yyyy HH:mm:ss') : '--'}">--</span></span>
+                        </div>       
+                     </div>
                 </div>
+            
             </div>
         </div>
     </div>
 
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
-            <div class="card stat-card shadow-soft h-100">
+            <div class="card stat-card pastel-lilac shadow-soft h-100">
                 <div class="card-body">
-                    <div class="label mb-1"><i class="bi bi-bullseye me-1"></i>Số lần nhận diện</div>
-                    <div class="fs-3 fw-semibold" th:text="${totalLogs}">0</div>
+                    <div class="stat-label mb-1"><i class="bi bi-bullseye me-1"></i>Số lần nhận diện</div>
+                    <div class="stat-value" th:text="${totalLogs}">0</div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card stat-card shadow-soft h-100">
+            <div class="card stat-card pastel-mint shadow-soft h-100">
                 <div class="card-body">
-                    <div class="label mb-1"><i class="bi bi-graph-up me-1"></i>Tương đồng TB</div>
-                    <div class="fs-3 fw-semibold" th:text="${totalLogs > 0 ? #numbers.formatDecimal(avgSimilarity, 1, 4) : '--'}">0</div>
+                    <div class="stat-label mb-1"><i class="bi bi-graph-up me-1"></i>Tương đồng TB</div>
+                    <div class="stat-value" th:text="${totalLogs > 0 ? #numbers.formatDecimal(avgSimilarity, 1, 4) : '--'}">0</div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card stat-card shadow-soft h-100">
+            <div class="card stat-card pastel-peach shadow-soft h-100">
                 <div class="card-body">
-                    <div class="label mb-1"><i class="bi bi-trophy me-1"></i>Cao nhất</div>
-                    <div class="fs-3 fw-semibold" th:text="${totalLogs > 0 ? #numbers.formatDecimal(maxSimilarity, 1, 4) : '--'}">0</div>
+                    <div class="stat-label mb-1"><i class="bi bi-trophy me-1"></i>Cao nhất</div>
+                    <div class="stat-value" th:text="${totalLogs > 0 ? #numbers.formatDecimal(maxSimilarity, 1, 4) : '--'}">0</div>
                 </div>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card stat-card shadow-soft h-100">
+            <div class="card stat-card pastel-sky shadow-soft h-100">
                 <div class="card-body">
-                    <div class="label mb-1"><i class="bi bi-clock me-1"></i>Lần gần nhất</div>
-                    <div class="fw-semibold" th:text="${lastSeen != null ? #temporals.format(lastSeen, 'dd/MM/yyyy HH:mm') : '--'}">--</div>
+                    <div class="stat-label mb-1"><i class="bi bi-clock me-1"></i>Lần gần nhất</div>
+                    <div class="stat-value" th:text="${lastSeen != null ? #temporals.format(lastSeen, 'dd/MM/yyyy HH:mm') : '--'}">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card calendar-card shadow-soft h-100 p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h3 class="panel-title mb-0"><i class="bi bi-calendar-week me-2"></i>Lịch nhận diện</h3>
+                    <span class="badge rounded-pill bg-light text-muted">Theo ngày</span>
+                </div>
+                <div id="calendar"></div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-soft h-100 chart-card">
+                <div class="card-body">
+                    <h3 class="panel-title mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Biểu đồ độ tương đồng</h3>
+                    <canvas id="similarityChart" height="180"></canvas>
                 </div>
             </div>
         </div>
@@ -335,6 +300,135 @@
             btn.disabled = true;
         });
     })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script th:inline="javascript">
+    const labels = /*[[${logs.![#temporals.format(recognizedAt,'dd/MM/yyyy HH:mm:ss')]}]]*/ [];
+    const similarities = /*[[${logs.![similarity]}]]*/ [];
+    labels.reverse();
+    similarities.reverse();
+</script>
+<script>
+new Chart(document.getElementById("similarityChart"), {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [{
+            label: "Độ tương đồng",
+            data: similarities,
+            fill: false,
+            borderWidth: 2,
+            tension: 0.3
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: {
+                title: {
+                    display: true,
+                    text: "Lần nhận diện"
+                }
+            },
+            y: {
+                min: 0,
+                max: 1,
+                title: {
+                    display: true,
+                    text: "Độ tương đồng"
+                }
+            }
+        }
+    }
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.18/index.global.min.js"></script>
+<script th:inline="javascript">
+
+// Lấy toàn bộ thời gian nhận diện
+const logTimes = /*[[${logs.![recognizedAt]}]]*/ [];
+
+console.log(logTimes);
+
+// Đếm số lần theo từng ngày
+const countByDay = {};
+
+logTimes.forEach(t => {
+
+    const d = new Date(t);
+
+    const key =
+        d.getFullYear() + "-" +
+        String(d.getMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getDate()).padStart(2, "0");
+
+    countByDay[key] = (countByDay[key] || 0) + 1;
+
+});
+
+console.log(countByDay);
+
+// Chuyển thành events cho FullCalendar
+const events = Object.entries(countByDay).map(([date, count]) => ({
+
+    start: date,
+    allDay: true,
+
+    extendedProps: {
+        count: count
+    }
+
+}));
+
+console.log(events);
+const calendar = new FullCalendar.Calendar(
+    document.getElementById("calendar"),
+    {
+
+        locale: "vi",
+
+        initialView: "dayGridMonth",
+
+        height: "auto",
+
+        events: events,
+
+        eventContent: function(arg){
+
+            const n = arg.event.extendedProps.count;
+
+            let color = "#060606";
+
+            if(n >= 10)
+                color = "#216e39";
+            else if(n >= 7)
+                color = "#30a14e";
+            else if(n >= 4)
+                color = "#40c463";
+            else if(n >= 1)
+                color = "#9be9a8";
+
+            return {
+                html:
+                    `<div style="
+                        width:100%;
+                        height:100%;
+                        background:${color};
+                        border-radius:4px;
+                        color:white;
+                        font-size:11px;
+                        text-align:center;
+                        line-height:18px;">
+                        ${n}
+                    </div>`
+            };
+
+        }
+
+    }
+);
+
+calendar.render();
 </script>
 </body>
 </html>
