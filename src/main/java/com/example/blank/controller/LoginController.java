@@ -9,17 +9,17 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @Controller
 public class LoginController {
 
-    @GetMapping("/")
+    @GetMapping("/view")
     public String home() {
-        return "redirect:/login";
+        return "redirect:/view/login";
     }
 
-    @GetMapping("/login")
+    @GetMapping("/view/login")
     public String login() {
         return "login";
     }
 
-    @PostMapping("/login")
+    @PostMapping("/view/login")
     public String doLogin(@RequestParam String username,
                           @RequestParam String password,
                           RedirectAttributes redirectAttributes) {
@@ -33,7 +33,7 @@ public class LoginController {
                 "Sai tài khoản hoặc mật khẩu."
         );
 
-        return "redirect:/login";
+        return "redirect:/view/login";
     }
 
 }

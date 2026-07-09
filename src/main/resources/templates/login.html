@@ -22,7 +22,7 @@
 
                 <div class="alert alert-danger border-0" th:if="${error}" th:text="${error}"></div>
 
-                <form th:action="@{/login}" method="post">
+                <form th:action="@{/view/login}" method="post">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Tài khoản</label>
                         <input type="text" name="username" class="form-control" placeholder="Nhập tài khoản" required>
