@@ -28,11 +28,6 @@ public class Home {
         this.recognitionLogRepository = recognitionLogRepository;
     }
 
-    // @GetMapping("/")
-    // public String index() {
-    //     return "redirect:/view/registers";
-    // }
-
     @GetMapping("/view/registers")
 public String registerList(Model model) {
 
