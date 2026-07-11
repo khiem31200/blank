@@ -18,13 +18,14 @@ public interface RecognitionLogRepository extends JpaRepository<RecognitionLog, 
     @Query("update RecognitionLog r set r.identityName = :newName where r.identityName = :oldName")
     int renameIdentityName(@Param("oldName") String oldName, @Param("newName") String newName);
 
+    // Cong 7h de nhom theo NGAY gio Viet Nam (DB luu UTC)
     @Query(value = """
     SELECT
-    DATE(recognized_at),
+    DATE(recognized_at + INTERVAL '7 hours'),
     COUNT(DISTINCT identity_name)
     FROM recognition_logs
-    GROUP BY DATE(recognized_at)
-    ORDER BY DATE(recognized_at)
+    GROUP BY DATE(recognized_at + INTERVAL '7 hours')
+    ORDER BY DATE(recognized_at + INTERVAL '7 hours')
     """, nativeQuery = true)
     List<Object[]> getDailyAttendance();
 }

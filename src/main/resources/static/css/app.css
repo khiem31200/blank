@@ -326,7 +326,15 @@ a { text-decoration: none; }
   font-size: .9rem;
 }
 
-.sim { border-radius: 999px; padding: .3rem .7rem; font-size: .8rem; font-weight: 700; }
+.sim {
+  border-radius: 999px;
+  padding: .3rem .7rem;
+  font-size: .8rem;
+  font-weight: 700;
+  min-width: 76px;                 /* badge deu be rong -> cac bar ket thuc thang hang */
+  text-align: center;
+  font-variant-numeric: tabular-nums; /* chu so deu nhau, khong xo lech */
+}
 .sim-high { background: #e8f5eb; color: #2f855a; }
 .sim-mid { background: #fff6e5; color: #b7791f; }
 .sim-low { background: #fdecec; color: #c2410c; }
@@ -461,6 +469,26 @@ a { text-decoration: none; }
   color: #b91c1c;
   background: #fef2f2;
   font-weight: 700;
+}
+
+/* Nut "Dang ky khuon mat" o sidebar: cung kich co + hieu ung voi .logout-btn
+   (padding/radius/weight giong het, phang khong do bong, hover chi dam mau nhe) */
+.btn-sidebar-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: none;              /* bo bong lon cua .btn-primary cho giong logout */
+  transition: background .15s ease;
+}
+
+.btn-sidebar-primary:hover {
+  filter: none;                  /* bo brightness cua .btn-primary:hover */
+  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%); /* dam hon 1 nac, nhu logout fef2f2 -> fee2e2 */
 }
 
 .logout-btn:hover {

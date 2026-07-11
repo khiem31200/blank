@@ -59,7 +59,7 @@ public String registerList(Model model) {
                 logs.stream().mapToDouble(RecognitionLog::getSimilarity).average().orElse(0));
         model.addAttribute("maxSimilarity",
                 logs.stream().mapToDouble(RecognitionLog::getSimilarity).max().orElse(0));
-        model.addAttribute("lastSeen", logs.isEmpty() ? null : logs.get(0).getRecognizedAt());
+        model.addAttribute("lastSeen", logs.isEmpty() ? null : logs.get(0).getRecognizedAtVn()); // gio VN (+7h)
         return "identity-logs";
     }
 

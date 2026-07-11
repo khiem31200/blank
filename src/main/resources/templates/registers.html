@@ -33,6 +33,11 @@
                             <p class="sidebar-subtitle">Điều khiển nhận diện</p>
                         </div>
                     </div>
+                    <div class="sidebar-action mb-3">
+                        <button type="button" class="btn btn-primary btn-sidebar-primary" onclick="openEnrollModal()">
+                            <i class="bi bi-person-plus"></i> Đăng ký khuôn mặt
+                        </button>
+                    </div>
                     <div class="sidebar-nav">
                         <a class="nav-link-item active" href="/view/registers"><i class="bi bi-grid-1x2"></i> Bảng điều khiển</a>
                         <a class="nav-link-item" href="#identityTable"><i class="bi bi-person-badge"></i> Danh sách định danh</a>
@@ -183,7 +188,7 @@
                                 </td>
                                 <td class="text-muted">
                                     <i class="bi bi-clock-history me-1"></i>
-                                    <span th:text="${identity.createdAt != null ? #temporals.format(identity.createdAt, 'dd/MM/yyyy HH:mm:ss') : ''}">--</span>
+                                    <span th:text="${identity.createdAtVn != null ? #temporals.format(identity.createdAtVn, 'dd/MM/yyyy HH:mm:ss') : ''}">--</span>
                                 </td>
                                 <td class="text-end text-muted"><i class="bi bi-chevron-right"></i></td>
                             </tr>
@@ -202,7 +207,153 @@
     </div>
 </div>
 
+<!-- Modal: Dang ky khuon mat (Luong 3) -->
+<div class="modal fade" id="enrollModal" tabindex="-1" aria-labelledby="enrollModalLabel" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="enrollModalLabel">
+                    <i class="bi bi-person-plus me-2"></i>Đăng ký khuôn mặt mới
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="enrollCloseX"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="enrollDevice" class="form-label fw-medium">
+                        Thiết bị ESP32
+                        <a href="javascript:void(0)" class="small ms-2" onclick="loadDevices()"><i class="bi bi-arrow-clockwise"></i> làm mới</a>
+                    </label>
+                    <select id="enrollDevice" class="form-select">
+                        <option value="">-- Đang tải danh sách... --</option>
+                    </select>
+                    <div id="noDeviceHint" class="form-text text-danger d-none">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Không có thiết bị nào online. Kiểm tra ESP32 đã kết nối chưa.
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="enrollName" class="form-label fw-medium">Tên người dùng</label>
+                    <input type="text" id="enrollName" class="form-control" placeholder="VD: Nguyen Van A" maxlength="100">
+                </div>
+
+                <!-- Trang thai dang chup -->
+                <div id="enrollProgress" class="d-none text-center py-3">
+                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                    <div class="fw-medium">Thiết bị đang chụp 5 ảnh khuôn mặt...</div>
+                    <div class="text-muted small">Hãy nhìn thẳng vào camera. Quá trình mất tối đa ~60 giây.</div>
+                </div>
+                <!-- Ket qua -->
+                <div id="enrollResult" class="alert d-none mb-0" role="alert"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="enrollCancelBtn">Đóng</button>
+                <button type="button" class="btn btn-primary" id="enrollStartBtn" onclick="startEnroll()">
+                    <i class="bi bi-camera me-1"></i>Bắt đầu chụp
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let enrollModal;
+
+    function openEnrollModal() {
+        enrollModal = enrollModal || new bootstrap.Modal(document.getElementById('enrollModal'));
+        resetEnrollUi();
+        loadDevices();
+        enrollModal.show();
+    }
+
+    function resetEnrollUi() {
+        document.getElementById('enrollName').value = '';
+        document.getElementById('enrollProgress').classList.add('d-none');
+        const res = document.getElementById('enrollResult');
+        res.classList.add('d-none');
+        res.className = 'alert d-none mb-0';
+        setEnrollBusy(false);
+    }
+
+    function setEnrollBusy(busy) {
+        document.getElementById('enrollStartBtn').disabled = busy;
+        document.getElementById('enrollDevice').disabled = busy;
+        document.getElementById('enrollName').disabled = busy;
+        document.getElementById('enrollCancelBtn').disabled = busy;
+        document.getElementById('enrollCloseX').disabled = busy;
+        document.getElementById('enrollProgress').classList.toggle('d-none', !busy);
+    }
+
+    async function loadDevices() {
+        const sel = document.getElementById('enrollDevice');
+        const hint = document.getElementById('noDeviceHint');
+        sel.innerHTML = '<option value="">-- Đang tải... --</option>';
+        try {
+            const devices = await (await fetch('/api/enroll/devices')).json();
+            sel.innerHTML = '';
+            if (!devices.length) {
+                sel.innerHTML = '<option value="">-- Không có thiết bị online --</option>';
+                hint.classList.remove('d-none');
+                return;
+            }
+            hint.classList.add('d-none');
+            devices.forEach(d => {
+                const o = document.createElement('option');
+                o.value = d; o.textContent = d;
+                sel.appendChild(o);
+            });
+        } catch (e) {
+            sel.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+        }
+    }
+
+    function showEnrollResult(kind, html) {
+        const res = document.getElementById('enrollResult');
+        res.className = 'alert mb-0 alert-' + kind;
+        res.innerHTML = html;
+    }
+
+    async function startEnroll() {
+        const deviceId = document.getElementById('enrollDevice').value;
+        const name = document.getElementById('enrollName').value.trim();
+        if (!deviceId) { showEnrollResult('warning', '<i class="bi bi-exclamation-triangle me-1"></i>Hãy chọn thiết bị.'); return; }
+        if (!name)     { showEnrollResult('warning', '<i class="bi bi-exclamation-triangle me-1"></i>Hãy nhập tên người dùng.'); return; }
+
+        document.getElementById('enrollResult').className = 'alert d-none mb-0';
+        setEnrollBusy(true);
+        try {
+            const res = await fetch('/api/enroll/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deviceId, name })
+            });
+            const data = await res.json().catch(() => ({}));
+            setEnrollBusy(false);
+
+            if (res.ok && data.status === 'ok') {
+                showEnrollResult('success',
+                    '<i class="bi bi-check-circle me-1"></i>Đăng ký thành công: <b>' + data.name + '</b> (ID #' + data.id + '). Đang tải lại trang...');
+                setTimeout(() => location.reload(), 1500);
+                return;
+            }
+            // Cac ket cuc khong thanh cong
+            const err = data.error || '';
+            let msg;
+            if (data.status === 'timeout')                    msg = 'Thiết bị không gửi đủ 5 ảnh trong thời gian cho phép. Kiểm tra camera rồi thử lại.';
+            else if (data.status === 'interrupted')           msg = 'Phiên đăng ký bị gián đoạn bởi một lượt nhận diện. Thử lại sau.';
+            else if (data.status === 'device_disconnected')   msg = 'Thiết bị mất kết nối giữa chừng. Kiểm tra ESP32 rồi thử lại.';
+            else if (err === 'name already exists')           msg = 'Tên "' + name + '" đã tồn tại. Hãy dùng tên khác.';
+            else if (err === 'device busy')                   msg = 'Thiết bị đang bận nhận diện. Thử lại sau ít giây.';
+            else if (err === 'already enrolling')             msg = 'Thiết bị đang trong một phiên đăng ký khác.';
+            else if (err === 'device offline')                msg = 'Thiết bị đã offline. Bấm "làm mới" để cập nhật danh sách.';
+            else                                              msg = 'Lỗi hệ thống: ' + (data.message || err || ('HTTP ' + res.status));
+            showEnrollResult('danger', '<i class="bi bi-x-circle me-1"></i>' + msg);
+        } catch (e) {
+            setEnrollBusy(false);
+            showEnrollResult('danger', '<i class="bi bi-x-circle me-1"></i>Không gọi được server: ' + e.message);
+        }
+    }
+</script>
 <script>
     function filterRows() {
         const q = document.getElementById('searchInput').value.trim().toLowerCase();

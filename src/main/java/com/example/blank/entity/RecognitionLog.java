@@ -1,9 +1,13 @@
 package com.example.blank.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "recognition_logs")
 public class RecognitionLog {
@@ -21,35 +25,8 @@ public class RecognitionLog {
     @Column(name = "recognized_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime recognizedAt;
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getIdentityName() {
-        return identityName;
-    }
-
-    public void setIdentityName(String identityName) {
-        this.identityName = identityName;
-    }
-
-    public Double getSimilarity() {
-        return similarity;
-    }
-
-    public void setSimilarity(Double similarity) {
-        this.similarity = similarity;
-    }
-
-    public OffsetDateTime getRecognizedAt() {
-        return recognizedAt;
-    }
-
-    public void setRecognizedAt(OffsetDateTime recognizedAt) {
-        this.recognizedAt = recognizedAt;
+    /** Gio Viet Nam: DB luu gio UTC (Python ghi) -> cong 7h khi hien thi. Hibernate bo qua (field-access). */
+    public OffsetDateTime getRecognizedAtVn() {
+        return recognizedAt == null ? null : recognizedAt.plusHours(7);
     }
 }

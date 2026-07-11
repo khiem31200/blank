@@ -3,8 +3,7 @@ package com.example.blank.websocket;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -15,10 +14,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Log4j2
 @Component
 public class BaseWebSocketHandler extends TextWebSocketHandler {
-
-    private static final Logger log = LoggerFactory.getLogger(BaseWebSocketHandler.class);
 
     // Registry phiên theo sessionId (tầng base: chưa gắn deviceId — đó là việc của tầng nghiệp vụ).
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();

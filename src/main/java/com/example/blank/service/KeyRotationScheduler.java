@@ -4,8 +4,7 @@ import com.example.blank.entity.Device;
 import com.example.blank.repository.DeviceRepository;
 import com.example.blank.websocket.DeviceSessionRegistry;
 import com.example.blank.websocket.DeviceWebSocketHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,10 +21,9 @@ import java.util.Map;
  * Promote xay ra khi nhan ackRotateKey (o DeviceWebSocketHandler), hoac tu phuc hoi khi reconnect
  * bang key moi (authenticate khop pending -> promote).
  */
+@Log4j2
 @Component
 public class KeyRotationScheduler {
-
-    private static final Logger log = LoggerFactory.getLogger(KeyRotationScheduler.class);
 
     private final DeviceRepository deviceRepository;
     private final DeviceKeyService keyService;

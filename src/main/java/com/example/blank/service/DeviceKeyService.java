@@ -2,8 +2,7 @@ package com.example.blank.service;
 
 import com.example.blank.entity.Device;
 import com.example.blank.repository.DeviceRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -21,10 +20,10 @@ import java.util.HexFormat;
  * - So sanh constant-time (MessageDigest.isEqual).
  * - 3 o: current / previous / pending (confirm-then-promote, khong brick).
  */
+@Log4j2
 @Service
 public class DeviceKeyService {
 
-    private static final Logger log = LoggerFactory.getLogger(DeviceKeyService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final DeviceRepository deviceRepository;

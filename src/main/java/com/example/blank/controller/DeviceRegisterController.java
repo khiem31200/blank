@@ -3,8 +3,7 @@ package com.example.blank.controller;
 import com.example.blank.service.DeviceRegistrationService;
 import com.example.blank.service.RateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,10 +16,9 @@ import java.util.Map;
  * Luong 1: thiet bi chua co key -> xin cap key qua HTTP (secret chung).
  * Endpoint nay nam o location nginx rieng, KHONG sau map api-key.
  */
+@Log4j2
 @RestController
 public class DeviceRegisterController {
-
-    private static final Logger log = LoggerFactory.getLogger(DeviceRegisterController.class);
 
     private final DeviceRegistrationService registrationService;
     private final RateLimiter rateLimiter;

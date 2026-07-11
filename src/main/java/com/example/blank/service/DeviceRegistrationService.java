@@ -2,8 +2,7 @@ package com.example.blank.service;
 
 import com.example.blank.entity.Device;
 import com.example.blank.repository.DeviceRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,10 +11,9 @@ import java.time.Instant;
 /**
  * Luong 1: cap / cap lai API key cho thiet bi. Idempotent theo deviceId (khong tao record trung).
  */
+@Log4j2
 @Service
 public class DeviceRegistrationService {
-
-    private static final Logger log = LoggerFactory.getLogger(DeviceRegistrationService.class);
 
     private final DeviceRepository deviceRepository;
     private final DeviceKeyService keyService;

@@ -1,9 +1,13 @@
 package com.example.blank.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "identities")
 public class Identity {
@@ -21,35 +25,8 @@ public class Identity {
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
-    }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(OffsetDateTime createdAt) {
-        this.createdAt = createdAt;
+    /** Gio Viet Nam: DB luu gio UTC (Python ghi) -> cong 7h khi hien thi. Hibernate bo qua (field-access). */
+    public OffsetDateTime getCreatedAtVn() {
+        return createdAt == null ? null : createdAt.plusHours(7);
     }
 }

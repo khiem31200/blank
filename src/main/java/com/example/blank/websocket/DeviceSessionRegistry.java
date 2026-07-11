@@ -44,4 +44,13 @@ public class DeviceSessionRegistry {
     public int online() {
         return runtimes.size();
     }
+
+    /** Danh sach deviceId dang online (session WS con mo) — dung cho dropdown chon thiet bi tren web. */
+    public java.util.List<String> onlineDeviceIds() {
+        return runtimes.values().stream()
+                .filter(rt -> rt.getSession() != null && rt.getSession().isOpen())
+                .map(DeviceRuntime::getDeviceId)
+                .sorted()
+                .toList();
+    }
 }

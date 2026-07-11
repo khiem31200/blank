@@ -3,8 +3,8 @@ package com.example.blank.websocket;
 import com.example.blank.entity.Device;
 import com.example.blank.repository.DeviceRepository;
 import com.example.blank.service.DeviceKeyService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.example.blank.service.FaceFlowService;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -22,36 +22,41 @@ import java.util.Map;
  * (base van la @Component nhung khong duoc dung truc tiep). Base khong bi sua.
  *
  * Luong 2: register (xac thuc key) + heartbeat + huy session khi dong.
- * Cac type khac (enroll_image / recognize_image) se cam vao day o Luong 3/4.
+ * Luong 3/4: enroll_image / recognize_image -> uy quyen cho FaceFlowService (state machine + goi Python).
  */
+@Log4j2
 @Component
 @Primary
 public class DeviceWebSocketHandler extends BaseWebSocketHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(DeviceWebSocketHandler.class);
     private static final String ATTR_DEVICE_ID = "deviceId";
 
     private final DeviceKeyService keyService;
     private final DeviceRepository deviceRepository;
     private final DeviceSessionRegistry registry;
+    private final FaceFlowService faceFlow;
 
     public DeviceWebSocketHandler(ObjectMapper mapper,
                                   DeviceKeyService keyService,
                                   DeviceRepository deviceRepository,
-                                  DeviceSessionRegistry registry) {
+                                  DeviceSessionRegistry registry,
+                                  FaceFlowService faceFlow) {
         super(mapper);
         this.keyService = keyService;
         this.deviceRepository = deviceRepository;
         this.registry = registry;
+        this.faceFlow = faceFlow;
     }
 
     @Override
     protected void handleBusinessMessage(WebSocketSession session, String type, JsonNode data) {
         switch (type) {
-            case "register"     -> handleRegister(session, data);
-            case "heartbeat"    -> handleHeartbeat(session);
-            case "ackRotateKey" -> handleRotateAck(session, data);
-            default             -> super.handleBusinessMessage(session, type, data); // -> error unknown_type
+            case "register"        -> handleRegister(session, data);
+            case "heartbeat"       -> handleHeartbeat(session);
+            case "ackRotateKey"    -> handleRotateAck(session, data);
+            case "enroll_image"    -> handleEnrollImage(session, data);     // Luong 3
+            case "recognize_image" -> handleRecognizeImage(session, data);  // Luong 4
+            default                -> super.handleBusinessMessage(session, type, data); // -> error unknown_type
         }
     }
 
@@ -122,12 +127,33 @@ public class DeviceWebSocketHandler extends BaseWebSocketHandler {
         });
     }
 
+    // ---- Luong 3: thiet bi gui anh enroll ----
+    private void handleEnrollImage(WebSocketSession session, JsonNode data) {
+        String deviceId = (String) session.getAttributes().get(ATTR_DEVICE_ID);
+        if (deviceId == null) {
+            sendJson(session, Map.of("type", "error", "reason", "not_registered"));
+            return;
+        }
+        faceFlow.onEnrollImage(deviceId, text(data, "sessionId"), text(data, "image"));
+    }
+
+    // ---- Luong 4: thiet bi gui anh recognize (nut bam vat ly) ----
+    private void handleRecognizeImage(WebSocketSession session, JsonNode data) {
+        String deviceId = (String) session.getAttributes().get(ATTR_DEVICE_ID);
+        if (deviceId == null) {
+            sendJson(session, Map.of("type", "error", "reason", "not_registered"));
+            return;
+        }
+        faceFlow.onRecognizeImage(deviceId, text(data, "image"));
+    }
+
     // ---- Vong doi: don session + danh dau offline khi dong ----
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         super.afterConnectionClosed(session, status);
         String deviceId = (String) session.getAttributes().get(ATTR_DEVICE_ID);
         if (deviceId == null) return;
+        faceFlow.onDeviceDisconnected(deviceId); // huy phien enroll treo TRUOC khi xoa runtime
         registry.remove(deviceId);
         deviceRepository.findById(deviceId).ifPresent(d -> {
             d.setStatus("offline");
