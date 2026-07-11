@@ -48,6 +48,10 @@ Firmware có đúng **5 nhiệm vụ**, đánh số theo "luồng" (flow) của 
 | Khung ảnh khuyến nghị | JPEG, **VGA (640x480)**, quality 12–15 | ~30–60KB → base64 ~40–80KB, an toàn dưới limit |
 | `BUTTON_GPIO` | `13` (INPUT_PULLUP, nhấn = LOW) | Nút nhận diện; đổi tùy board |
 
+**Phần cứng của dự án: chỉ gồm ESP32-CAM + 1 nút bấm.** Không có LED/relay/màn hình —
+mọi phản hồi cho người dùng qua **Serial log** (khi debug) và **dashboard web** (vận hành thật:
+kết quả nhận diện, lịch sử đều hiện ở `https://iot-project.io.vn/view/registers`).
+
 Thư viện Arduino: `WiFi`, `WiFiClientSecure`, `HTTPClient`, **arduinoWebSockets (Links2004)**,
 **ArduinoJson**, `Preferences` (NVS), `esp_camera`, `base64` (có sẵn trong ESP32 core).
 
@@ -124,7 +128,7 @@ Chạy **một lần duy nhất** khi NVS chưa có `apiKey` (máy mới hoặc 
    | HTTP | Body | Firmware phải làm |
    |---|---|---|
    | 200 | `{"apiKey":"...","deviceId":"..."}` | **Ghi `apiKey` vào NVS NGAY** → sang Luồng 2 |
-   | 401 | `{"error":"invalid secret"}` | Secret sai — lỗi cấu hình, dừng + nháy LED lỗi |
+   | 401 | `{"error":"invalid secret"}` | Secret sai — lỗi cấu hình, in lỗi ra Serial và dừng (chỉ sửa được bằng nạp lại firmware) |
    | 429 | `{"error":"too many requests"}` | Bị rate-limit → đợi 30–60s rồi thử lại |
    | khác / timeout | — | Đợi 5s, thử lại (vòng lặp vô hạn có backoff) |
 
@@ -171,16 +175,21 @@ Firmware xử lý:
 
 1. Lưu `sessionId` (chuỗi, gửi lại **nguyên văn** trong từng ảnh) và `count` (đọc từ message, đừng hardcode).
 2. Xóa cờ `stopEnroll = false`.
-3. Lặp `i = 1..count`:
+3. Lặp `i = 1..count` — **QUAN TRỌNG: xử lý TỪNG ảnh một, trong RAM không bao giờ có quá 1 ảnh.**
+   Tuyệt đối KHÔNG chụp cả 5 ảnh rồi gửi dồn (5 ảnh + 5 chuỗi base64 ≈ 600KB–1MB → hết RAM, reset giữa chừng).
+   Chu trình mỗi ảnh: **chụp → encode → trả frame buffer NGAY → gửi → giải phóng chuỗi → mới chụp ảnh kế**:
    a. Nếu `stopEnroll == true` → **dừng ngay**, thoát vòng lặp (xem bước 5).
-   b. Chụp 1 ảnh JPEG (VGA, quality 12–15). Nháy LED flash nếu muốn báo người dùng.
-   c. Encode base64. Nếu chuỗi > 400.000 ký tự → giảm quality/size rồi chụp lại (server bỏ qua ảnh quá to, **không báo lỗi**).
+   b. Chụp 1 ảnh JPEG (VGA, quality 12–15) → encode base64 → gọi `esp_camera_fb_return(fb)` **ngay sau khi encode xong** (trả frame buffer cho driver, không giữ).
+   c. Nếu chuỗi base64 > 400.000 ký tự → giảm quality/size rồi chụp lại (server bỏ qua ảnh quá to, **không báo lỗi**).
    d. Gửi (một text frame duy nhất):
       ```json
       {"type":"enroll_image","sessionId":"<nguyên văn>","deviceId":"A0B1C2D3E4F5","image":"<base64>"}
       ```
+      Gửi xong, để chuỗi base64 ra khỏi scope (hoặc `b64 = ""`) để giải phóng RAM **trước khi** chụp ảnh tiếp theo.
    e. `ws.loop()` + delay 300–500ms giữa các ảnh (để người dùng kịp đổi góc mặt nhẹ,
       và để nhận được `stop_enroll` nếu có). **Toàn bộ `count` ảnh phải gửi xong trong 30 giây.**
+   > Server **gom và đếm ảnh ở phía server** theo `sessionId` — thiết bị không cần "gói 5 ảnh thành 1 request",
+   > cứ bắn lần lượt 5 message rời là đúng protocol (simulator cũng làm y vậy).
 4. Không có phản hồi per-ảnh. Kết quả enroll trả cho **web**, không trả cho thiết bị. Gửi xong ảnh cuối → coi như xong, quay lại chế độ chờ.
 5. Bất cứ lúc nào nhận:
    ```json
@@ -193,6 +202,14 @@ Sai lầm cần tránh:
 - ❌ Tự bịa sessionId hoặc gửi sessionId cũ — ảnh sẽ bị bỏ qua, web báo timeout.
 - ❌ Chụp cả 5 ảnh trước rồi gửi dồn — dễ hết RAM; chụp-gửi-xóa từng ảnh một.
 - ❌ Block cứng không gọi `ws.loop()` trong lúc chụp — sẽ không bao giờ thấy `stop_enroll` và heartbeat bị nghẽn.
+
+**Hỏi hay gặp: đang chờ `recognize_result` mà `start_enroll` tới thì sao?**
+Không xảy ra theo thiết kế: khi thiết bị đang nhận diện, server trả `409 device busy` cho web
+và KHÔNG gửi `start_enroll`. Message trên 1 kết nối WS đến đúng thứ tự, và server chỉ gửi
+`start_enroll` sau khi đã gửi `recognize_result` — nên nếu firmware thấy `start_enroll` thì
+result chắc chắn đã đến trước đó. Phòng thủ duy nhất cần có: trong handler `start_enroll`,
+clear cờ đang-chờ-result (`waitingResult = false`) rồi chạy enroll bình thường — che nốt
+trường hợp result thất lạc vì rớt mạng đúng khoảnh khắc đó.
 
 ---
 
@@ -211,14 +228,46 @@ Sai lầm cần tránh:
 
    | Message nhận được | Ý nghĩa | Gợi ý UX |
    |---|---|---|
-   | `{"type":"recognize_result","status":"ok","identity":"Nguyen Van A","confidence":0.99}` | Khớp | LED xanh / mở cửa / hiện tên |
-   | `{"type":"recognize_result","status":"unknown","confidence":0.41}` | Không khớp ai | LED vàng |
-   | `{"type":"recognize_result","status":"error","reason":"..."}` | Lỗi hệ thống (backend down/ảnh hỏng) | LED đỏ, cho phép bấm lại |
+   | `{"type":"recognize_result","status":"ok","identity":"Nguyen Van A","confidence":0.99}` | Khớp | In tên + confidence ra Serial; kết quả cũng hiện trên dashboard web (lịch sử nhận diện) |
+   | `{"type":"recognize_result","status":"unknown","confidence":0.41}` | Không khớp ai | In "khong khop" ra Serial |
+   | `{"type":"recognize_result","status":"error","reason":"..."}` | Lỗi hệ thống (backend down/ảnh hỏng) | In lỗi ra Serial, cho phép bấm lại |
    | `{"type":"busy","reason":"recognizing"}` | Ảnh trước còn đang xử lý (bấm dồn) | Bỏ qua, chờ result |
    | `{"type":"busy","reason":"enrolling"}` | Enroll vừa đủ ảnh, server đang xử lý | Chờ vài giây bấm lại |
 
 4. Trường hợp đặc biệt: bấm nút **giữa lúc đang chụp enroll** → recognize được ưu tiên,
    server tự hủy enroll và gửi `stop_enroll` — firmware chỉ cần xử lý `stop_enroll` như mục 6.5, không cần logic riêng.
+
+---
+
+## 7b. Xung đột enroll ↔ recognize — thiết bị KHÔNG phải phân xử
+
+Mọi quyết định tranh chấp nằm ở **server** (state machine loại trừ theo từng thiết bị).
+Firmware chỉ việc phản ứng theo message nhận được:
+
+| Tình huống | Ai xử lý | Thiết bị thấy gì / phải làm gì |
+|---|---|---|
+| Đang **recognize** → admin bấm enroll trên web | **Server chặn** — trả `409 device busy` cho web | Không thấy gì. `start_enroll` không bao giờ tới trong lúc này (message trên 1 kết nối WS đến đúng thứ tự, server chỉ gửi `start_enroll` sau khi đã gửi `recognize_result`) |
+| Đang **enroll** (chụp dở) → người dùng bấm nút recognize | **Server preempt** — recognize được ưu tiên, hủy enroll | Nhận `stop_enroll` → dừng chụp (mục 6.5); sau đó nhận `recognize_result` bình thường |
+| Enroll **đã đủ ảnh**, backend đang xử lý → bấm nút | Server từ chối ảnh nhận diện | Nhận `{"type":"busy","reason":"enrolling"}` → chờ vài giây bấm lại |
+| Đang recognize → bấm nút thêm lần nữa (bấm dồn) | Server từ chối | Nhận `{"type":"busy","reason":"recognizing"}` → chờ result rồi mới bấm |
+
+Phòng thủ duy nhất phía firmware: trong handler `start_enroll` clear cờ đang-chờ-result
+(`waitingResult = false`) — che trường hợp `recognize_result` thất lạc vì rớt mạng (code mẫu mục 10 đã có).
+
+---
+
+## 7c. "Trạng thái thiết bị" — ai giữ gì? (firmware KHÔNG gửi status)
+
+Có 3 tầng "status" khác nhau — đừng nhầm lẫn, và đừng tự chế message báo trạng thái:
+
+| Tầng | Giá trị | Ai set | Firmware phải làm gì |
+|---|---|---|---|
+| `devices.status` (DB) | `online` / `offline` | **Server tự set**: `register` thành công → online; rớt WS → offline; heartbeat giữ online + cập nhật `last_seen` | Chỉ cần register + heartbeat đều đặn. KHÔNG có giá trị `recognizing`/`enrolling` trong DB — trạng thái phiên không lưu DB (thiết kế đã chốt) |
+| `DeviceState` (RAM server) | `IDLE` / `RECOGNIZING` / `ENROLLING` | **Server tự chuyển** theo message: `recognize_image` → RECOGNIZING → (gửi result xong) → IDLE; enroll tương tự | Không làm gì — server tự suy ra từ message thiết bị gửi, không có field status nào để gửi kèm |
+| Cờ cục bộ firmware | `online`, `waitingResult`, `stopEnroll` | **Firmware tự giữ** cho logic của chính nó | Như code mẫu mục 10. Chỉ sống trong RAM thiết bị, không gửi lên server |
+
+Ví dụ với tình huống mục 7b (đang recognize, web bấm enroll): server giữ nguyên `RECOGNIZING`,
+trả 409 cho web, xong recognize thì tự về `IDLE` — **không tầng nào cần firmware can thiệp**.
 
 ---
 
@@ -330,6 +379,7 @@ String hwDeviceId() {
 
 bool initCamera() {
   camera_config_t c = {};
+  // LEDC o day KHONG phai den LED — la ngoai vi phat xung clock cho camera. DUNG XOA.
   c.ledc_channel = LEDC_CHANNEL_0; c.ledc_timer = LEDC_TIMER_0;
   c.pin_d0=Y2; c.pin_d1=Y3; c.pin_d2=Y4; c.pin_d3=Y5; c.pin_d4=Y6; c.pin_d5=Y7; c.pin_d6=Y8; c.pin_d7=Y9;
   c.pin_xclk=XCLK_GPIO; c.pin_pclk=PCLK_GPIO; c.pin_vsync=VSYNC_GPIO; c.pin_href=HREF_GPIO;
@@ -391,16 +441,20 @@ bool provisionIfNeeded() {
 }
 
 // ================== LUỒNG 3 ==================
+// GUI TUNG ANH MOT: moi vong lap chi giu 1 anh trong RAM (chup -> gui -> giai phong -> chup tiep).
+// KHONG gom 5 anh roi gui don — se het RAM. Server tu dem du `count` anh theo sessionId.
 void doEnroll(const String& sessionId, int count) {
   Serial.printf("start_enroll: can %d anh\n", count);
   stopEnroll = false;
   for (int i = 1; i <= count; i++) {
     if (stopEnroll) { Serial.println("Dung theo stop_enroll"); return; }
-    String b64 = captureB64();
-    if (b64.length()) {
-      sendImageMsg("enroll_image", sessionId, b64);
-      Serial.printf("  da gui anh %d/%d\n", i, count);
-    }
+    {   // block scope: b64 + msg duoc giai phong ngay khi ra khoi {} — truoc lan chup ke tiep
+      String b64 = captureB64();                 // frame buffer da duoc tra lai ben trong ham nay
+      if (b64.length()) {
+        sendImageMsg("enroll_image", sessionId, b64);
+        Serial.printf("  da gui anh %d/%d (RAM free: %u)\n", i, count, ESP.getFreeHeap());
+      }
+    }   // <- b64 chet o day, RAM ve lai muc cu
     // 400ms giữa các ảnh + vẫn bơm WS để nhận stop_enroll
     for (int t = 0; t < 8; t++) { ws.loop(); delay(50); }
   }
@@ -426,6 +480,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t len) {
     else { nvs.remove("apiKey"); apiKey = ""; online = false; ws.disconnect(); } // về Luồng 1
   }
   else if (t == "start_enroll") {                   // Luồng 3
+    waitingResult = false;  // phong thu: server chi gui start_enroll khi da xong nhan dien
     doEnroll(d["sessionId"].as<String>(), d["count"] | 5);
   }
   else if (t == "stop_enroll") {                    // Luồng 3 bước 5
@@ -437,7 +492,7 @@ void onWsEvent(WStype_t type, uint8_t* payload, size_t len) {
     if (st == "ok")      Serial.printf("KHOP: %s (%.4f)\n", (const char*)d["identity"], (double)d["confidence"]);
     else if (st == "unknown") Serial.println("Khong khop ai");
     else                 Serial.printf("Loi nhan dien: %s\n", (const char*)d["reason"]);
-    // TODO: LED/relay theo ket qua
+    // Phan cung chi co nut + cam: ket qua in Serial la du, dashboard web hien lich su day du
   }
   else if (t == "busy") {                           // bấm dồn / enroll đang xử lý
     Serial.printf("busy: %s\n", (const char*)d["reason"]);
@@ -530,4 +585,5 @@ song song để so sánh — sim là thiết bị "chuẩn"; nếu sim làm đư
 | `{"type":"error","reason":"not_registered"}` | Gửi ảnh trước khi có `register_ack success` | Chỉ gửi khi cờ `online == true` |
 | Crash/reset khi chụp | Hết RAM (không PSRAM / fb_count lớn / giữ nhiều ảnh) | PSRAM bật, `fb_count=1`, chụp-gửi-xóa từng ảnh |
 | WSS không kết nối được | Quên TLS (dùng `begin` thay `beginSSL`) | `beginSSL(HOST, 443, "/ws")` |
+| Camera không init sau khi "dọn code LED" | Xóa nhầm `c.ledc_channel`/`c.ledc_timer` (tưởng là LED) | Khôi phục — LEDC là ngoại vi xung clock camera, không phải đèn |
 | Nhận diện lúc được lúc `busy` | Bấm nút dồn dập | Chặn bấm mới tới khi có result (code mẫu đã có) |
