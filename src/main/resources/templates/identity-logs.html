@@ -126,19 +126,19 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-soft">
                 <tr>
-                    <th scope="col" style="width: 80px;">ID</th>
+                    <th scope="col" style="width: 70px;">STT</th>
                     <th scope="col">Độ tương đồng</th>
                     <th scope="col" style="width: 230px;">Thời gian nhận diện</th>
                 </tr>
                 </thead>
                 <tbody>
                 <tr th:if="${#lists.isEmpty(logs)}">
-                    <td colspan="3" class="text-center text-muted py-5">
+                    <td colspan="4" class="text-center text-muted py-5">
                         <i class="bi bi-camera-video-off fs-1 d-block mb-2 opacity-50"></i>Chưa có lần nhận diện nào cho định danh này.
                     </td>
                 </tr>
-                <tr th:each="log : ${logs}">
-                    <td class="text-muted">#<span th:text="${log.id}">1</span></td>
+                <tr th:each="log, iter : ${logs}">
+                    <td class="text-muted">#<span th:text="${iter.count}">1</span></td>
                     <td class="pe-5">
                         <div class="d-flex align-items-center gap-2">
                             <div class="bar flex-grow-1"

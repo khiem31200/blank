@@ -42,6 +42,7 @@
                         <a class="nav-link-item active" href="/view/registers"><i class="bi bi-grid-1x2"></i> Bảng điều khiển</a>
                         <a class="nav-link-item" href="#identityTable"><i class="bi bi-person-badge"></i> Danh sách định danh</a>
                         <a class="nav-link-item" href="#calendar"><i class="bi bi-calendar-event"></i> Lịch nhận diện</a>
+                        <a class="nav-link-item" href="/view/devices"><i class="bi bi-cpu"></i> Quản lý thiết bị</a>
                     </div>
                     <a class="logout-btn" href="/view/login"><i class="bi bi-box-arrow-right"></i> Đăng xuất</a>
                 </div>
@@ -108,10 +109,17 @@
                     <div class="col-sm-12 col-lg-4">
                         <div class="card stat-card shadow-soft h-100">
                             <div class="card-body d-flex align-items-center gap-3">
-                                <div class="stat-icon"><i class="bi bi-shield-check"></i></div>
+                                <div class="stat-icon">
+                                    <i id="recognizeHealthIcon"
+                                       th:class="${recognizeHealthy} ? 'bi bi-shield-check text-success' : 'bi bi-shield-exclamation text-danger'"></i>
+                                </div>
                                 <div>
-                                    <div class="stat-label">Trạng thái hệ thống</div>
-                                    <div class="stat-value">Đang hoạt động</div>
+                                    <div class="stat-label">Service nhận diện</div>
+                                    <div class="stat-value d-flex align-items-center gap-2">
+                                        <span id="recognizeHealthBadge"
+                                              th:class="${recognizeHealthy} ? 'sim sim-high' : 'sim sim-low'"
+                                              th:text="${recognizeHealthy} ? 'Đang hoạt động' : 'Mất kết nối'">--</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -219,6 +227,12 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="enrollCloseX"></button>
             </div>
             <div class="modal-body">
+                <!-- Canh bao service recognize loi (cap nhat theo poll 15s) -->
+                <div id="enrollHealthWarn" class="alert alert-danger d-none mb-3" role="alert">
+                    <i class="bi bi-exclamation-octagon me-1"></i>
+                    <b>Service nhận diện đang gián đoạn.</b> Không thể đăng ký khuôn mặt lúc này —
+                    hệ thống sẽ tự mở lại khi service phục hồi.
+                </div>
                 <div class="mb-3">
                     <label for="enrollDevice" class="form-label fw-medium">
                         Thiết bị ESP32
@@ -256,14 +270,54 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
+<script th:inline="javascript">
     let enrollModal;
+    let recognizeHealthy = /*[[${recognizeHealthy}]]*/ true; // trang thai ban dau tu server
+
+    // Poll trang thai service o CAP TRANG: card tren dashboard tu cap nhat 15s/lan
+    // du khong mo modal. Modal khi mo chi doc bien recognizeHealthy + apply ngay.
+    document.addEventListener('DOMContentLoaded', () => {
+        pollHealth();                          // kiem tra ngay khi vao trang
+        setInterval(pollHealth, 15000);        // roi lap moi 15s (khong bao gio dung)
+    });
 
     function openEnrollModal() {
         enrollModal = enrollModal || new bootstrap.Modal(document.getElementById('enrollModal'));
         resetEnrollUi();
         loadDevices();
+        applyHealth();                 // ap trang thai hien tai ngay khi mo
+        pollHealth();                  // kiem tra lai ngay (khong doi den nhip 15s ke tiep)
         enrollModal.show();
+    }
+
+    async function pollHealth() {
+        try {
+            const d = await (await fetch('/api/enroll/health')).json();
+            recognizeHealthy = !!d.healthy;
+        } catch (e) { recognizeHealthy = false; }
+        applyHealth();
+        updateHealthCard();            // dong bo card tren dashboard luon
+    }
+
+    // Bat/tat cac control theo suc khoe service; hien banner canh bao
+    function applyHealth() {
+        const warn = document.getElementById('enrollHealthWarn');
+        warn.classList.toggle('d-none', recognizeHealthy);
+        const startBtn = document.getElementById('enrollStartBtn');
+        // chi khoa vi health khi khong dang chup (setEnrollBusy lo phan busy)
+        if (!document.getElementById('enrollProgress').classList.contains('d-none')) return;
+        startBtn.disabled = !recognizeHealthy;
+    }
+
+    // Cap nhat card "Service nhan dien" tren dashboard khong can reload
+    function updateHealthCard() {
+        const badge = document.getElementById('recognizeHealthBadge');
+        const icon = document.getElementById('recognizeHealthIcon');
+        if (!badge) return;
+        badge.className = recognizeHealthy ? 'sim sim-high' : 'sim sim-low';
+        badge.textContent = recognizeHealthy ? 'Đang hoạt động' : 'Mất kết nối';
+        if (icon) icon.className = recognizeHealthy
+            ? 'bi bi-shield-check text-success' : 'bi bi-shield-exclamation text-danger';
     }
 
     function resetEnrollUi() {
@@ -276,7 +330,8 @@
     }
 
     function setEnrollBusy(busy) {
-        document.getElementById('enrollStartBtn').disabled = busy;
+        // Nut bat dau: khoa khi dang chup HOAC khi service recognize loi
+        document.getElementById('enrollStartBtn').disabled = busy || !recognizeHealthy;
         document.getElementById('enrollDevice').disabled = busy;
         document.getElementById('enrollName').disabled = busy;
         document.getElementById('enrollCancelBtn').disabled = busy;
@@ -299,7 +354,8 @@
             hint.classList.add('d-none');
             devices.forEach(d => {
                 const o = document.createElement('option');
-                o.value = d; o.textContent = d;
+                o.value = d.deviceId;         // gửi đi khi enroll (không đổi)
+                o.textContent = d.name;       // hiển thị tên đặt (hoặc deviceId nếu chưa đặt)
                 sel.appendChild(o);
             });
         } catch (e) {
@@ -316,6 +372,7 @@
     async function startEnroll() {
         const deviceId = document.getElementById('enrollDevice').value;
         const name = document.getElementById('enrollName').value.trim();
+        if (!recognizeHealthy) { showEnrollResult('danger', '<i class="bi bi-exclamation-octagon me-1"></i>Service nhận diện đang gián đoạn, chưa thể đăng ký.'); return; }
         if (!deviceId) { showEnrollResult('warning', '<i class="bi bi-exclamation-triangle me-1"></i>Hãy chọn thiết bị.'); return; }
         if (!name)     { showEnrollResult('warning', '<i class="bi bi-exclamation-triangle me-1"></i>Hãy nhập tên người dùng.'); return; }
 
@@ -346,6 +403,7 @@
             else if (err === 'device busy')                   msg = 'Thiết bị đang bận nhận diện. Thử lại sau ít giây.';
             else if (err === 'already enrolling')             msg = 'Thiết bị đang trong một phiên đăng ký khác.';
             else if (err === 'device offline')                msg = 'Thiết bị đã offline. Bấm "làm mới" để cập nhật danh sách.';
+            else if (res.status === 503 || err === 'recognize service unavailable') { msg = 'Service nhận diện đang gián đoạn, chưa thể đăng ký.'; recognizeHealthy = false; applyHealth(); updateHealthCard(); }
             else                                              msg = 'Lỗi hệ thống: ' + (data.message || err || ('HTTP ' + res.status));
             showEnrollResult('danger', '<i class="bi bi-x-circle me-1"></i>' + msg);
         } catch (e) {

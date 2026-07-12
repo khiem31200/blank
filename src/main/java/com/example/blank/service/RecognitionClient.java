@@ -85,6 +85,24 @@ public class RecognitionClient {
     }
 
     /**
+     * Health-check nhanh service recognize (Python): GET / voi timeout ngan.
+     * Dung cho card "Trang thai he thong" tren dashboard. true = service song va tra 2xx.
+     */
+    public boolean isBackendHealthy() {
+        try {
+            HttpRequest req = HttpRequest.newBuilder(URI.create(baseUrl + "/"))
+                    .timeout(Duration.ofSeconds(3))
+                    .GET()
+                    .build();
+            HttpResponse<Void> res = http.send(req, HttpResponse.BodyHandlers.discarding());
+            return res.statusCode() / 100 == 2;
+        } catch (Exception e) {
+            log.warn("Health-check backend that bai: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Check trung ten TRUOC khi bat dau chup (chan "identity mo coi": Python /enroll
      * tao identity truoc roi moi gan ten -> gap 409 trung ten thi record khong ten da nam trong gallery).
      * Duyet de quy moi field "name" trong response /identities de khong phu thuoc schema chinh xac.

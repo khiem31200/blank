@@ -46,6 +46,7 @@ public class FaceFlowService {
 
     private final DeviceSessionRegistry registry;
     private final RecognitionClient client;
+    private final RecognitionHealthMonitor health;
     private final ObjectMapper mapper;
 
     private final int imageCount;
@@ -59,6 +60,7 @@ public class FaceFlowService {
 
     public FaceFlowService(DeviceSessionRegistry registry,
                            RecognitionClient client,
+                           RecognitionHealthMonitor health,
                            ObjectMapper mapper,
                            @Value("${enroll.image-count:5}") int imageCount,
                            @Value("${enroll.timeout:PT30S}") Duration enrollTimeout,
@@ -67,6 +69,7 @@ public class FaceFlowService {
                            @Value("${device.image.max-base64-length:400000}") int maxImageChars) {
         this.registry = registry;
         this.client = client;
+        this.health = health;
         this.mapper = mapper;
         this.imageCount = imageCount;
         this.enrollTimeout = enrollTimeout;
@@ -84,6 +87,10 @@ public class FaceFlowService {
     public EnrollStartResult startEnroll(String deviceId, String name) {
         if (isBlank(deviceId) || isBlank(name)) {
             return err(400, "missing deviceId or name");
+        }
+        // Chan enroll khi service recognize dang loi (khong chup phi rồi that bai o buoc goi Python)
+        if (!health.isHealthy()) {
+            return err(503, "recognize service unavailable");
         }
         DeviceRuntime rt = registry.get(deviceId);
         if (rt == null || rt.getSession() == null || !rt.getSession().isOpen()) {

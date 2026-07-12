@@ -18,7 +18,10 @@ public class Device {
 
     @Id
     @Column(name = "device_id")
-    private String deviceId;                 // = chip id / MAC cua ESP32 (co dinh phan cung)
+    private String deviceId;
+
+    @Column(name = "display_name", length = 100)
+    private String displayName;
 
     @Column(name = "device_type", length = 100)
     private String deviceType = "ESP32_CAM";
@@ -43,4 +46,14 @@ public class Device {
 
     @Column(name = "created_at")
     private Instant createdAt;
+
+    /** Ten de hien thi: uu tien displayName, chua dat thi dung device_id. */
+    public String getEffectiveName() {
+        return (displayName == null || displayName.isBlank()) ? deviceId : displayName;
+    }
+
+    /** Gio Viet Nam (+7h) cho hien thi. lastSeen luu UTC (Instant) -> doi sang OffsetDateTime +7. */
+    public java.time.OffsetDateTime getLastSeenVn() {
+        return lastSeen == null ? null : lastSeen.atOffset(java.time.ZoneOffset.ofHours(7));
+    }
 }

@@ -4,6 +4,7 @@ import com.example.blank.entity.Identity;
 import com.example.blank.entity.RecognitionLog;
 import com.example.blank.repository.IdentityRepository;
 import com.example.blank.repository.RecognitionLogRepository;
+import com.example.blank.service.RecognitionHealthMonitor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,11 +22,14 @@ public class Home {
 
     private final IdentityRepository identityRepository;
     private final RecognitionLogRepository recognitionLogRepository;
+    private final RecognitionHealthMonitor healthMonitor;
 
     public Home(IdentityRepository identityRepository,
-                RecognitionLogRepository recognitionLogRepository) {
+                RecognitionLogRepository recognitionLogRepository,
+                RecognitionHealthMonitor healthMonitor) {
         this.identityRepository = identityRepository;
         this.recognitionLogRepository = recognitionLogRepository;
+        this.healthMonitor = healthMonitor;
     }
 
     @GetMapping("/view/registers")
@@ -36,6 +40,8 @@ public String registerList(Model model) {
 
     model.addAttribute("attendance",
             recognitionLogRepository.getDailyAttendance());
+
+    model.addAttribute("recognizeHealthy", healthMonitor.isHealthy()); // trang thai cache (poll nen 15s/lan)
 
     return "registers";
 }
