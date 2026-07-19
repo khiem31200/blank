@@ -269,7 +269,73 @@
     </div>
 </div>
 
+<!-- Toast container: thong bao nhan dien realtime (WS /ws/ui) -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" id="recognizeToastContainer" style="z-index: 1090;"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ===== Thong bao nhan dien realtime qua WebSocket /ws/ui =====
+    (function () {
+        const container = document.getElementById('recognizeToastContainer');
+        let ws, reconnectTimer, pingTimer;
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function showRecognized(d) {
+            const name = escapeHtml(d.identity || 'Không rõ');
+            const time = new Date(d.ts || Date.now()).toLocaleTimeString('vi-VN');
+            const conf = (typeof d.confidence === 'number')
+                ? 'Độ tương đồng ' + d.confidence.toFixed(4) : '';
+
+            const el = document.createElement('div');
+            el.className = 'toast align-items-center border-0 shadow';
+            el.setAttribute('role', 'alert');
+            el.setAttribute('aria-live', 'assertive');
+            el.setAttribute('aria-atomic', 'true');
+            el.innerHTML =
+                '<div class="toast-header">' +
+                    '<i class="bi bi-person-check-fill text-success me-2"></i>' +
+                    '<strong class="me-auto">Nhận diện thành công</strong>' +
+                    '<small class="text-muted">' + time + '</small>' +
+                    '<button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Đóng"></button>' +
+                '</div>' +
+                '<div class="toast-body">' +
+                    '<b>' + name + '</b> đã được nhận diện.' +
+                    (conf ? '<div class="text-muted small mt-1">' + conf + '</div>' : '') +
+                '</div>';
+
+            container.appendChild(el);
+            const t = new bootstrap.Toast(el, { delay: 6000 });   // tu dong an sau 6s
+            el.addEventListener('hidden.bs.toast', () => el.remove());   // don DOM sau khi an
+            t.show();
+        }
+
+        function connect() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            try { ws = new WebSocket(proto + '://' + location.host + '/ws/ui'); }
+            catch (e) { reconnectTimer = setTimeout(connect, 3000); return; }
+
+            ws.onopen = () => {
+                clearInterval(pingTimer);
+                pingTimer = setInterval(() => { if (ws.readyState === 1) ws.send('{"type":"ping"}'); }, 30000);
+            };
+            ws.onmessage = (ev) => {
+                let msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+                if (msg.type === 'recognized') showRecognized(msg);
+            };
+            ws.onclose = () => {
+                clearInterval(pingTimer);
+                clearTimeout(reconnectTimer);
+                reconnectTimer = setTimeout(connect, 3000);     // tu ket noi lai
+            };
+            ws.onerror = () => { try { ws.close(); } catch (e) {} };
+        }
+        connect();
+    })();
+</script>
 <script th:inline="javascript">
     let enrollModal;
     let recognizeHealthy = /*[[${recognizeHealthy}]]*/ true; // trang thai ban dau tu server

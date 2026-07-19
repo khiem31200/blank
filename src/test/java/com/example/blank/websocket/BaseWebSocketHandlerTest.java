@@ -11,6 +11,7 @@ import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
@@ -47,9 +48,18 @@ class BaseWebSocketHandlerTest {
     })
     @Import(WebSocketConfig.class) // để @EnableWebSocket được xử lý (không dùng được qua @Bean)
     static class TestApp {
+        // @Primary: WebSocketConfig tiem `BaseWebSocketHandler handler` cho /ws — co 2 candidate
+        // (bean nay + UiNotificationHandler la subclass) nen phai chi dinh cai nao la chinh.
         @Bean
+        @Primary
         BaseWebSocketHandler baseWebSocketHandler(ObjectMapper mapper) {
             return new BaseWebSocketHandler(mapper);
+        }
+
+        // WebSocketConfig nay can UiNotificationHandler (kenh /ws/ui) -> cap trong context toi gian
+        @Bean
+        UiNotificationHandler uiNotificationHandler(ObjectMapper mapper) {
+            return new UiNotificationHandler(mapper);
         }
     }
 

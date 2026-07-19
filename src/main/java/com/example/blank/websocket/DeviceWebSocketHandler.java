@@ -14,6 +14,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 
@@ -86,7 +87,8 @@ public class DeviceWebSocketHandler extends BaseWebSocketHandler {
         }
 
         session.getAttributes().put(ATTR_DEVICE_ID, deviceId);
-        registry.bind(deviceId, session);
+        DeviceRuntime rt = registry.bind(deviceId, session);
+        rt.setLastHeartbeatAt(Instant.now());
         d.setStatus("online");
         d.setLastSeen(Instant.now());
         deviceRepository.save(d);
@@ -102,6 +104,8 @@ public class DeviceWebSocketHandler extends BaseWebSocketHandler {
             sendJson(session, Map.of("type", "error", "reason", "not_registered"));
             return;
         }
+        DeviceRuntime rt = registry.get(deviceId);
+        if (rt != null) rt.setLastHeartbeatAt(Instant.now());
         deviceRepository.findById(deviceId).ifPresent(d -> {
             d.setStatus("online");
             d.setLastSeen(Instant.now());
@@ -154,13 +158,21 @@ public class DeviceWebSocketHandler extends BaseWebSocketHandler {
         String deviceId = (String) session.getAttributes().get(ATTR_DEVICE_ID);
         if (deviceId == null) return;
         faceFlow.onDeviceDisconnected(deviceId); // huy phien enroll treo TRUOC khi xoa runtime
+
+        // Khoang cach toi heartbeat gan nhat: giup phan biet "chet giua luc hoat dong" voi "chet luc idle"
+        // ma khong can doi chieu timestamp tay qua nhieu dong log (xem debug rot WS ngay 2026-07-19).
+        DeviceRuntime rt = registry.get(deviceId);
+        String heartbeatGap = rt == null
+                ? "?"
+                : Duration.between(rt.getLastHeartbeatAt(), Instant.now()).toSeconds() + "s";
+
         registry.remove(deviceId);
         deviceRepository.findById(deviceId).ifPresent(d -> {
             d.setStatus("offline");
             d.setLastSeen(Instant.now());
             deviceRepository.save(d);
         });
-        log.info("WS device offline: {} (online={})", deviceId, registry.online());
+        log.info("WS device offline: {} (online={}, heartbeat_gap={})", deviceId, registry.online(), heartbeatGap);
     }
 
     private static String text(JsonNode data, String field) {

@@ -6,6 +6,7 @@ import com.example.blank.websocket.DeviceState;
 import com.example.blank.websocket.EnrollSession;
 import com.example.blank.websocket.EnrollSession.Outcome;
 import com.example.blank.websocket.EnrollSession.Status;
+import com.example.blank.websocket.UiNotificationHandler;
 
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +49,7 @@ public class FaceFlowService {
     private final RecognitionClient client;
     private final RecognitionHealthMonitor health;
     private final ObjectMapper mapper;
+    private final UiNotificationHandler ui;   // day thong bao recognize xuong dashboard (Luong 4)
 
     private final int imageCount;
     private final Duration enrollTimeout;      // thoi gian toi da GOM anh
@@ -62,6 +64,7 @@ public class FaceFlowService {
                            RecognitionClient client,
                            RecognitionHealthMonitor health,
                            ObjectMapper mapper,
+                           UiNotificationHandler ui,
                            @Value("${enroll.image-count:5}") int imageCount,
                            @Value("${enroll.timeout:PT30S}") Duration enrollTimeout,
                            @Value("${recognition.enroll-timeout:PT20S}") Duration backendGrace,
@@ -71,6 +74,7 @@ public class FaceFlowService {
         this.client = client;
         this.health = health;
         this.mapper = mapper;
+        this.ui = ui;
         this.imageCount = imageCount;
         this.enrollTimeout = enrollTimeout;
         this.backendGrace = backendGrace;
@@ -264,6 +268,8 @@ public class FaceFlowService {
             send(ws, msg);
             log.info("Recognize xong: device={} status={} identity={}",
                     deviceId, matched ? "ok" : "unknown", res.identity());
+            // Khop -> ban thong bao realtime len dashboard (hop thoai "<ten> da nhan dien")
+            if (matched) ui.notifyRecognized(deviceId, res.identity(), res.confidence());
         } catch (RecognitionClient.BackendException be) {
             // Loi backend -> van tra ket qua de ESP32 ket thuc luong, khong treo
             send(ws, Map.of("type", "recognize_result", "status", "error", "reason", be.getMessage()));

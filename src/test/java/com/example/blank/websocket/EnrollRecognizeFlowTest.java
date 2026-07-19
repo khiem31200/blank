@@ -4,6 +4,7 @@ import com.example.blank.BlankApplication;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.*;
                 "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
                 "provisioning.secret=test-secret-123",
                 "device.register.rate-limit.max=1000",
+                "recognition.health-check-initial-ms=200",   // health UP som, tranh race voi enroll test dau tien
                 "enroll.timeout=PT2S",              // timeout gom anh ngan cho test
                 "enroll.priority-wait=PT1S",
                 "recognition.enroll-timeout=PT5S",
@@ -69,6 +71,9 @@ class EnrollRecognizeFlowTest {
     @DynamicPropertySource
     static void backendProps(DynamicPropertyRegistry reg) throws IOException {
         backend = HttpServer.create(new InetSocketAddress(0), 0);
+        // Health-check: RecognitionHealthMonitor ping GET "/" -> can 2xx de health=UP (neu thieu -> enroll tra 503).
+        // "/" la fallback (longest-prefix), khong dam len cac context cu the ben duoi.
+        backend.createContext("/", ex -> respond(ex, 200, "ok"));
         backend.createContext("/identities", ex ->
                 respond(ex, 200, "[{\"id\":1,\"name\":\"" + EXISTING_NAME + "\"}]"));
         backend.createContext("/enroll", ex -> {
@@ -106,6 +111,22 @@ class EnrollRecognizeFlowTest {
     ObjectMapper mapper;
 
     private final HttpClient http = HttpClient.newHttpClient();
+
+    /**
+     * Cho health-check dau tien chay xong (scheduler chay bat dong bo sau khi context len).
+     * Cac test enroll can health=UP moi qua duoc chot 503 -> cho o day de bo race duoi tai full-suite.
+     */
+    @BeforeEach
+    void waitBackendHealthy() throws Exception {
+        long deadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < deadline) {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create("http://localhost:" + port + "/api/enroll/health")).GET().build();
+            String body = http.send(req, HttpResponse.BodyHandlers.ofString()).body();
+            if (mapper.readTree(body).path("healthy").asBoolean()) return;
+            Thread.sleep(50);
+        }
+    }
 
     record DeviceCtx(WebSocketSession ws, BlockingQueue<String> inbox) {}
 
@@ -165,6 +186,18 @@ class EnrollRecognizeFlowTest {
     private void sendRecognizeImage(DeviceCtx c, String deviceId) throws Exception {
         c.ws().sendMessage(new TextMessage(
                 "{\"type\":\"recognize_image\",\"deviceId\":\"" + deviceId + "\",\"image\":\"anh-recog\"}"));
+    }
+
+    /** Gia lap trinh duyet dashboard: mo WS toi /ws/ui de nhan thong bao realtime (khong register). */
+    private DeviceCtx openUiClient() throws Exception {
+        BlockingQueue<String> inbox = new LinkedBlockingQueue<>();
+        WebSocketSession ws = new StandardWebSocketClient().execute(new TextWebSocketHandler() {
+            @Override
+            protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+                inbox.add(message.getPayload());
+            }
+        }, new WebSocketHttpHeaders(), URI.create("ws://localhost:" + port + "/ws/ui")).get(5, TimeUnit.SECONDS);
+        return new DeviceCtx(ws, inbox);
     }
 
     // ================= LUONG 3 =================
@@ -313,6 +346,55 @@ class EnrollRecognizeFlowTest {
         } finally {
             recognizeIdentity = "alice";
         }
+        c.ws().close();
+    }
+
+    @Test
+    void flow4_recognize_khop_ban_thong_bao_len_dashboard() throws Exception {
+        DeviceCtx ui = openUiClient();
+        String id = "esp-recog-ui";
+        DeviceCtx c = onlineDevice(id);
+        recognizeIdentity = "alice";
+
+        sendRecognizeImage(c, id);
+
+        // Thiet bi van nhan recognize_result ok nhu cu
+        JsonNode r = awaitType(c.inbox(), "recognize_result", 5);
+        assertNotNull(r);
+        assertEquals("ok", r.path("status").asText());
+
+        // Dashboard (/ws/ui) phai nhan thong bao "recognized" de bat toast
+        JsonNode n = awaitType(ui.inbox(), "recognized", 5);
+        assertNotNull(n, "Dashboard phai nhan thong bao recognized khi match");
+        assertEquals("alice", n.path("identity").asText());
+        assertEquals(id, n.path("deviceId").asText());
+        assertTrue(n.path("confidence").asDouble() > 0.9, n.toString());
+        assertTrue(n.path("ts").asLong() > 0, "phai co timestamp");
+
+        ui.ws().close();
+        c.ws().close();
+    }
+
+    @Test
+    void flow4_recognize_khong_khop_khong_ban_len_dashboard() throws Exception {
+        DeviceCtx ui = openUiClient();
+        String id = "esp-recog-ui-unknown";
+        DeviceCtx c = onlineDevice(id);
+        recognizeIdentity = null; // backend khong khop ai
+
+        try {
+            sendRecognizeImage(c, id);
+            JsonNode r = awaitType(c.inbox(), "recognize_result", 5);
+            assertNotNull(r);
+            assertEquals("unknown", r.path("status").asText());
+
+            // Khong khop -> KHONG duoc ban "recognized" len dashboard
+            assertNull(awaitType(ui.inbox(), "recognized", 2),
+                    "Unknown khong duoc ban recognized len dashboard");
+        } finally {
+            recognizeIdentity = "alice";
+        }
+        ui.ws().close();
         c.ws().close();
     }
 
